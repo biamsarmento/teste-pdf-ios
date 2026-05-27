@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teste — Download PDF iOS</title>
+<style>
+  :root {
+    --bg: #0e0e10;
+    --panel: #17171b;
+    --border: #2a2a32;
+    --text: #e8e8ec;
+    --muted: #8b8b94;
+    --red: #ff4d5e;
+    --green: #36d399;
+    --accent: #ffb84d;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    padding: 24px 16px 64px;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header { max-width: 720px; margin: 0 auto 32px; }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    letter-spacing: -0.02em;
+  }
+  .subtitle { color: var(--muted); font-size: 14px; margin: 0; }
+  .container { max-width: 720px; margin: 0 auto; display: grid; gap: 20px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .card-buggy { border-left: 4px solid var(--red); }
+  .card-fixed { border-left: 4px solid var(--green); }
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .badge-red { background: rgba(255,77,94,0.15); color: var(--red); }
+  .badge-green { background: rgba(54,211,153,0.15); color: var(--green); }
+  h2 { font-size: 17px; margin: 0 0 6px; font-weight: 600; }
+  .desc { color: var(--muted); font-size: 13.5px; margin: 0 0 16px; }
+  button {
+    width: 100%;
+    padding: 14px 16px;
+    border: 0;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.05s ease, opacity 0.15s ease;
+  }
+  button:active { transform: scale(0.98); }
+  .btn-buggy { background: var(--red); color: #fff; }
+  .btn-fixed { background: var(--green); color: #0e0e10; }
+  .status {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    min-height: 18px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .status.ok { color: var(--green); border-color: rgba(54,211,153,0.3); }
+  .status.err { color: var(--red); border-color: rgba(255,77,94,0.3); }
+  .info {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+  .info strong { color: var(--text); }
+  .info ol { padding-left: 20px; margin: 8px 0 0; }
+  .info li { margin-bottom: 4px; }
+  .device {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(255,184,77,0.1);
+    border: 1px solid rgba(255,184,77,0.3);
+    border-radius: 8px;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Teste de download de PDF</h1>
+  <p class="subtitle">Reprodução isolada do bug do chamado 7226 — Ficha Catalográfica Unifor</p>
+  <div class="device" id="device-info">Detectando dispositivo…</div>
+</header>
+
+<div class="container">
+
+  <div class="card card-buggy">
+    <span class="badge badge-red">Versão atual (com bug)</span>
+    <h2>Baixar PDF — código original</h2>
+    <p class="desc">
+      Reproduz exatamente o código atual do <code>work-cover.js</code>:
+      cria um link com <code>data:application/pdf;base64,...</code> e <code>download="ficha.pdf"</code>,
+      depois faz <code>link.click()</code> programaticamente após o AJAX.
+    </p>
+    <button class="btn-buggy" onclick="testarBuggy()">Gerar PDF (com bug)</button>
+    <div class="status" id="status-buggy">Aguardando teste…</div>
+  </div>
+
+  <div class="card card-fixed">
+    <span class="badge badge-green">Versão corrigida</span>
+    <h2>Baixar PDF — código com correção</h2>
+    <p class="desc">
+      Detecta iOS, abre uma aba antes do AJAX para preservar o gesto,
+      converte base64 em Blob e aponta a aba para o blob URL.
+      Em outros sistemas, mantém o download direto.
+    </p>
+    <button class="btn-fixed" onclick="testarCorrigido()">Gerar PDF (corrigido)</button>
+    <div class="status" id="status-fixed">Aguardando teste…</div>
+  </div>
+
+  <div class="info">
+    <strong>Como interpretar os resultados</strong>
+    <ol>
+      <li><strong>No iPhone (Safari):</strong> o botão vermelho não deve fazer nada (ou abrir uma página em branco sem download). O verde deve abrir o PDF numa nova aba com botão de compartilhar.</li>
+      <li><strong>No Mac/PC/Android:</strong> ambos os botões devem baixar o arquivo <code>ficha.pdf</code> normalmente.</li>
+      <li>Se aparecer um pop-up pedindo permissão para downloads em iOS, toque em <strong>Permitir</strong>.</li>
+    </ol>
+  </div>
+
+</div>
+
+<script>
+  // ============================================
+  // SIMULA O BACKEND: gera um PDF mínimo válido
+  // em base64 (o mesmo formato que o servidor
+  // do Liferay devolve ao portlet)
+  // ============================================
+  function gerarPdfBase64Simulado() {
+    // PDF mínimo válido com texto "Ficha Catalografica - Teste iOS"
+    var pdf = '%PDF-1.4\n' +
+      '1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n' +
+      '2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n' +
+      '3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n' +
+      '4 0 obj<</Length 90>>stream\n' +
+      'BT /F1 24 Tf 60 720 Td (Ficha Catalografica) Tj 0 -40 Td /F1 14 Tf (Teste de download iOS) Tj ET\n' +
+      'endstream endobj\n' +
+      '5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n' +
+      'xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000101 00000 n \n0000000195 00000 n \n0000000335 00000 n \n' +
+      'trailer<</Size 6/Root 1 0 R>>\nstartxref\n400\n%%EOF';
+    return btoa(pdf);
+  }
+
+  // Simula um AJAX assíncrono que retorna o PDF em base64
+  // (igual ao $.ajax do work-cover.js original)
+  function fakeAjaxRetornaBase64() {
+    return new Promise(function (resolve) {
+      setTimeout(function () {
+        resolve(gerarPdfBase64Simulado());
+      }, 300);
+    });
+  }
+
+  function setStatus(id, msg, cls) {
+    var el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  // ============================================
+  // VERSÃO COM BUG — código original do portlet
+  // ============================================
+  function testarBuggy() {
+    setStatus('status-buggy', 'Enviando requisição…');
+
+    fakeAjaxRetornaBase64().then(function (response) {
+      // ↓↓↓ EXATAMENTE O QUE ESTÁ EM work-cover.js HOJE ↓↓↓
+      var link = document.createElement('a');
+      link.href = 'data:application/pdf;base64,' + response;
+      link.download = 'ficha.pdf';
+      document.body.appendChild(link);
+      link.click();
+      // ↑↑↑ FIM DO TRECHO ORIGINAL ↑↑↑
+
+      setStatus('status-buggy',
+        'Clique executado. No iOS, provavelmente nada aconteceu (bug). No desktop/Android, o arquivo deve ter baixado.',
+        'err');
+    });
+  }
+
+  // ============================================
+  // VERSÃO CORRIGIDA — solução proposta
+  // ============================================
+  function testarCorrigido() {
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    setStatus('status-fixed', 'Enviando requisição…');
+
+    // Em iOS, abre a janela ANTES do AJAX (preserva o user gesture)
+    var iosWindow = null;
+    if (isIOS) {
+      iosWindow = window.open('', '_blank');
+    }
+
+    fakeAjaxRetornaBase64().then(function (response) {
+      // Converte base64 em Blob
+      var byteCharacters = atob(response);
+      var byteNumbers = new Array(byteCharacters.length);
+      for (var i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      var byteArray = new Uint8Array(byteNumbers);
+      var blob = new Blob([byteArray], { type: 'application/pdf' });
+      var blobUrl = URL.createObjectURL(blob);
+
+      if (isIOS) {
+        if (iosWindow) {
+          iosWindow.location.href = blobUrl;
+          setStatus('status-fixed',
+            'PDF aberto em nova aba. Use o botão de compartilhar do Safari para salvar.',
+            'ok');
+        } else {
+          window.location.href = blobUrl;
+        }
+      } else {
+        var link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = 'ficha.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setStatus('status-fixed', 'Download iniciado (ficha.pdf).', 'ok');
+      }
+
+      setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 60000);
+    });
+  }
+
+  // ============================================
+  // Mostra informações do dispositivo no header
+  // ============================================
+  (function () {
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var device = isIOS ? '📱 iOS detectado (deve falhar no botão vermelho)'
+                       : '💻 Não-iOS (ambos botões devem funcionar)';
+    document.getElementById('device-info').textContent = device;
+  })();
+</script>
+
+</body>
+</html>
